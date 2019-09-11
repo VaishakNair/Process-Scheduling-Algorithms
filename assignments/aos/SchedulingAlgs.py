@@ -3,6 +3,8 @@ from datetime import datetime
 from datetime import time
 from datetime import timedelta
 from queue import Queue
+from time import strftime
+from time import gmtime
 
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
@@ -61,7 +63,7 @@ def scheduleusingfcfs():
 
     fig = ff.create_gantt(df, title="First Come, First Served")
     plotly.offline.plot(fig, filename='file.html')
-    #fig.show()
+    # fig.show()
 
     # Calculate turnaround time waiting time
     calculateTurnaroundAndWaitingTime(fcfsDoneList)
@@ -119,22 +121,35 @@ def scheduleusingsjf():
 
 
 def drawTable(processList):
+    avgTurnaroundTime = getAverageTurnaroundTime(processList)
+    avgWaitingTime = getAverageWaitingTime(processList)
     fig = go.Figure(data=[go.Table(header=dict(values=['PID', 'Arrival Time', 'Burst Time',
                                                        'Completion Time', 'Turnaround Time', 'Waiting Time']),
-                                   cells=dict(values=[[x.processName for x in processList],
+                                   cells=dict(values=[[x.processName for x in processList] + ['<b>Average</b>'],
                                                       [x.arrivalTime for x in processList],
-                                                      [x. burstTime for x in processList],
+                                                      [x.burstTime for x in processList],
                                                       [x.completionTime for x in processList],
-                                                      [x.turnaroundTime for x in processList],
-                                                      [x.waitingTime for x in processList]]))
+                                                      [x.turnaroundTime for x in processList] + [str(avgTurnaroundTime) + " secs"],
+                                                      [x.waitingTime for x in processList] + [str(avgWaitingTime) + " secs"]]))
                           ])
     fig.show()
 
+
+def getAverageTurnaroundTime(processList):
+    times = [timedelta(hours=x.turnaroundTime.hour, minutes=x.turnaroundTime.minute, seconds=x.turnaroundTime.second)
+             for x in processList]
+    return (sum(times, timedelta()) / len(times)).total_seconds()
+
+def getAverageWaitingTime(processList):
+    times = [timedelta(hours=x.waitingTime.hour, minutes=x.waitingTime.minute, seconds=x.waitingTime.second)
+             for x in processList]
+    return (sum(times, timedelta()) / len(times)).total_seconds()
 
 def calculateTurnaroundAndWaitingTime(processList):
     for process in processList:
         process.turnaroundTime = subtractTimes(process.completionTime, process.arrivalTime)
         process.waitingTime = subtractTimes(process.turnaroundTime, process.burstTime)
+
 
 def subtractTimes(time1, time2):
     """Subtract second time object from the first and return a time object representing the difference."""
@@ -142,6 +157,7 @@ def subtractTimes(time1, time2):
     t2 = timedelta(hours=time2.hour, minutes=time2.minute, seconds=time2.second)
     t3 = t1 - t2
     return (datetime.min + t3).time()
+
 
 def addTimes(time1, time2):
     """Add two time objects and return a time object representing the sum."""
