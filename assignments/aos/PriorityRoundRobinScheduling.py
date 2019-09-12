@@ -11,7 +11,6 @@ from queue import Queue
 
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
-import copy
 
 
 class Process:
@@ -22,9 +21,14 @@ class Process:
         self.priority = priority
         self.arrivalTime = arrivalTime
         self.burstTime = burstTime
+        self.remainingBurstTime = burstTime
 
     def priorityval(self):
         return self.priority
+
+    def __repr__(self):
+        return self.processName
+
 
 priorityReadyList = []
 priorityDoneList = []
@@ -72,21 +76,18 @@ def scheduleusingpriority():
     fig = ff.create_gantt(df, title="Priority")
     fig.write_image("./priority.png")
 
-    # Calculate turnaround time and waiting time
     calculateTurnaroundAndWaitingTime(priorityDoneList)
-
     drawPriorityTable(priorityDoneList, "priorityTable.png")
 
 
 def scheduleusingroundrobin():
     """Schedule processes using Round Robin scheduling policy."""
-    df = [] # List to hold data needed to draw Gantt chart.
+    df = []  # List to hold data needed to draw Gantt chart.
     round_robin_time_slice = 3
     roundRobinQueue = Queue()
     currentDate = date.today()
 
     currentTime = time()  # Time initialized to zero
-    completionTime = time()  # Completion time initialized to zero.
     currentProcess = None
     while True:
 
@@ -96,38 +97,48 @@ def scheduleusingroundrobin():
         # Add the newly arrived processes, if any, to round robin queue:
         for process in arrivedProcesses:
             roundRobinQueue.put(process)
-            readyList.remove(process) # Remove the process from ready list
+            readyList.remove(process)  # Remove the process from ready list
 
-        if currentProcess and currentProcess.remainingBurstTime > 0:
+        if currentProcess and currentProcess.remainingBurstTime > time():
             roundRobinQueue.put(currentProcess)
         elif currentProcess:
             roundRobinDoneList.append(currentProcess)
             currentProcess.completionTime = currentTime
             currentProcess = None
 
-
-        currentProcess = roundRobinQueue.get()
+        if not roundRobinQueue.empty():
+            currentProcess = roundRobinQueue.get()
         if currentProcess:
-            startTime = copy.deepcopy(currentTime)
+            startTime = currentTime
             for i in range(1, round_robin_time_slice + 1):
                 # Update the remaining burst time of the process under execution:
-                currentProcess.remainingBurstTime = subtractTimes(currentProcess.burstTime, time(second=1))
-                currentTime = addTimes(currentTime, time(second=1)) # Increment current time by 1 second.
-                if currentProcess.remainingBurstTime == time(): # Process has completed execution
+                currentProcess.remainingBurstTime = subtractTimes(currentProcess.remainingBurstTime, time(second=1))
+                currentTime = addTimes(currentTime, time(second=1))  # Increment current time by 1 second.
+                if currentProcess.remainingBurstTime == time():  # Process has completed execution
                     break
 
 
             # Add the start and end times of the currently executing process to Gantt chart:
             df.append(dict(Task=currentProcess.processName, Start=str(currentDate) + " " + str(startTime),
                                Finish=str(currentDate) + " "
-                                    + str(currentTime)))
+                                    + str(currentTime), Resource=currentProcess.processName))
         else:
             currentTime = addTimes(currentTime, time(second=1))  # Increment current time by 1 second.
 
-        if not readyList:  # Ready list is empty. Break out from infinite loop
-            break
+        if not readyList \
+                and roundRobinQueue.empty()\
+                and currentProcess.remainingBurstTime == time():
+            # Ready list and round robin queue are empty and all processes have finished execution:
+            currentProcess.completionTime = currentTime
+            roundRobinDoneList.append(currentProcess)
+            break  # Break out from infinite loop
 
-    fig = ff.create_gantt(df, title="Round Robin")
+    colors = {'P1': 'rgb(220, 0, 0)',
+              'P2': 'rgb(119, 25, 230)',
+              'P3': 'rgb(0, 255, 100)'}
+    fig = ff.create_gantt(df, title="Round Robin (Time slice: 3 secs)", group_tasks=True,
+                          colors=colors,
+                          index_col='Resource')
     fig.write_image("./round_robin.png")
 
     calculateTurnaroundAndWaitingTime(roundRobinDoneList)
@@ -165,16 +176,19 @@ def drawTable(processList, fileName):
 
 
 def getAverageTurnaroundTime(processList):
+    """Compute average of turnaround times of the passed in processes."""
     times = [timedelta(hours=x.turnaroundTime.hour, minutes=x.turnaroundTime.minute, seconds=x.turnaroundTime.second)
              for x in processList]
     return (sum(times, timedelta()) / len(times)).total_seconds()
 
 def getAverageWaitingTime(processList):
+    """Compute average of waiting times of the passed in processes."""
     times = [timedelta(hours=x.waitingTime.hour, minutes=x.waitingTime.minute, seconds=x.waitingTime.second)
              for x in processList]
     return (sum(times, timedelta()) / len(times)).total_seconds()
 
 def calculateTurnaroundAndWaitingTime(processList):
+    """Calculate turnaround time and waiting time."""
     for process in processList:
         process.turnaroundTime = subtractTimes(process.completionTime, process.arrivalTime)
         process.waitingTime = subtractTimes(process.turnaroundTime, process.burstTime)
