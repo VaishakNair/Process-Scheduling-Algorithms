@@ -1,14 +1,16 @@
+"""Implements FCFS and SJF scheduling algorithms.
+
+@author Vaishak K Nair 19MCMI08 (MTech AI)
+"""
+
 from datetime import date
 from datetime import datetime
 from datetime import time
 from datetime import timedelta
 from queue import Queue
-from time import strftime
-from time import gmtime
 
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
-import plotly
 
 
 class Process:
@@ -57,17 +59,15 @@ def scheduleusingfcfs():
                        Finish=str(currentDate) + " "
                               + str(process.completionTime)))
 
-        print(df[0]['Start'], " Finish: ", df[0]['Finish'])
-
         nextProcessStart = addTimes(nextProcessStart, process.burstTime)
 
     fig = ff.create_gantt(df, title="First Come, First Served")
     fig.write_image("./fcfs.png")
 
-    # Calculate turnaround time waiting time
+    # Calculate turnaround time and waiting time
     calculateTurnaroundAndWaitingTime(fcfsDoneList)
 
-    drawTable(fcfsDoneList)
+    drawTable(fcfsDoneList, "fcfsTable.png")
 
 
 def scheduleusingsjf():
@@ -112,14 +112,13 @@ def scheduleusingsjf():
             break
 
     fig = ff.create_gantt(df, title="Shortest Job First")
-    # plotly.offline.plot(fig, filename='file.html')
     fig.write_image("./sjf.png")
 
     calculateTurnaroundAndWaitingTime(sjfDoneList)
-    drawTable(sjfDoneList)
+    drawTable(sjfDoneList, "sjfTable.png")
 
 
-def drawTable(processList):
+def drawTable(processList, fileName):
     avgTurnaroundTime = getAverageTurnaroundTime(processList)
     avgWaitingTime = getAverageWaitingTime(processList)
     fig = go.Figure(data=[go.Table(header=dict(values=['PID', 'Arrival Time', 'Burst Time',
@@ -131,7 +130,7 @@ def drawTable(processList):
                                                       [x.turnaroundTime for x in processList] + [str(avgTurnaroundTime) + " secs"],
                                                       [x.waitingTime for x in processList] + [str(avgWaitingTime) + " secs"]]))
                           ])
-    fig.show()
+    fig.write_image("./" + fileName)
 
 
 def getAverageTurnaroundTime(processList):
