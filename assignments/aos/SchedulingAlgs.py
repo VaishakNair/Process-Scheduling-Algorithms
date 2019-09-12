@@ -62,8 +62,7 @@ def scheduleusingfcfs():
         nextProcessStart = addTimes(nextProcessStart, process.burstTime)
 
     fig = ff.create_gantt(df, title="First Come, First Served")
-    plotly.offline.plot(fig, filename='file.html')
-    # fig.show()
+    fig.write_image("./fcfs.png")
 
     # Calculate turnaround time waiting time
     calculateTurnaroundAndWaitingTime(fcfsDoneList)
@@ -113,8 +112,8 @@ def scheduleusingsjf():
             break
 
     fig = ff.create_gantt(df, title="Shortest Job First")
-    plotly.offline.plot(fig, filename='file.html')
-    # fig.show()
+    # plotly.offline.plot(fig, filename='file.html')
+    fig.write_image("./sjf.png")
 
     calculateTurnaroundAndWaitingTime(sjfDoneList)
     drawTable(sjfDoneList)
